@@ -119,6 +119,10 @@ void	canopy_stratum_daily_F(
 	
 	double	compute_vascular_stratum_conductance(
 		int	,
+		int	,
+		double	,
+		double	,
+		double	,
 		double	,
 		double	,
 		double	,
@@ -229,6 +233,8 @@ void	canopy_stratum_daily_F(
 	double	potential_rainy_evaporation_rate;
 	double	rainy_evaporation;
 	double	rain_throughfall;
+	double	NO3_throughfall;
+	double	NO3_stored;
 	double	rnet_evap;
 	double	rnet_trans, rnet_trans_sunlit, rnet_trans_shade;
 	double	snow_throughfall;
@@ -255,6 +261,7 @@ void	canopy_stratum_daily_F(
 	double m_CO2_shade;
 	double m_tmin_shade;
 	double m_vpd_shade;
+
 
 
 	struct	psnin_struct	psnin;
@@ -313,6 +320,8 @@ void	canopy_stratum_daily_F(
 	rainy_evaporation = 0;
 	dry_evaporation = 0;
 	total_incoming_PAR = PAR_diffuse + PAR_direct;
+	NO3_stored=0;
+	NO3_throughfall=0
 
 
 	
@@ -640,7 +649,7 @@ void	canopy_stratum_daily_F(
 	/*
 	if ( command_line[0].verbose_flag > 1 )
 		printf("%f ",stratum[0].APAR_direct/zone[0].metv.dayl+
-		stratum[0].APAR_diffuse/zone[0].metv.dayl);
+		stratum[0].APAR_diffuse/zone[0].metv.dayl);		*/
 	/*--------------------------------------------------------------*/
 	/*								*/
 	/*	if there is still snow sitting on the canopy gs should be zero */
@@ -651,11 +660,15 @@ void	canopy_stratum_daily_F(
 
 	stratum[0].gs_sunlit = compute_vascular_stratum_conductance(
 		command_line[0].verbose_flag,
+		stratum[0].defaults[0][0].epc.psi_curve,
 		stratum[0].defaults[0][0].epc.ppfd_coef,
 		stratum[0].defaults[0][0].epc.gl_c,
 		stratum[0].defaults[0][0].lai_stomatal_fraction,
 		stratum[0].defaults[0][0].epc.psi_open,
 		stratum[0].defaults[0][0].epc.psi_close,
+		stratum[0].defaults[0][0].epc.psi_threshold,
+		stratum[0].defaults[0][0].epc.psi_slp,
+		stratum[0].defaults[0][0].epc.psi_intercpt,
 		stratum[0].defaults[0][0].epc.gl_smax,
 		stratum[0].defaults[0][0].epc.topt,
 		stratum[0].defaults[0][0].epc.tcoef,
@@ -682,11 +695,15 @@ void	canopy_stratum_daily_F(
 
 	stratum[0].potential_gs_sunlit = compute_vascular_stratum_conductance(
 		command_line[0].verbose_flag,
+		stratum[0].defaults[0][0].epc.psi_curve,
 		stratum[0].defaults[0][0].epc.ppfd_coef,
 		stratum[0].defaults[0][0].epc.gl_c,
 		stratum[0].defaults[0][0].lai_stomatal_fraction,
 		stratum[0].defaults[0][0].epc.psi_open,
 		stratum[0].defaults[0][0].epc.psi_close,
+		stratum[0].defaults[0][0].epc.psi_threshold,
+		stratum[0].defaults[0][0].epc.psi_slp,
+		stratum[0].defaults[0][0].epc.psi_intercpt,
 		stratum[0].defaults[0][0].epc.gl_smax,
 		stratum[0].defaults[0][0].epc.topt,
 		stratum[0].defaults[0][0].epc.tcoef,
@@ -705,11 +722,15 @@ void	canopy_stratum_daily_F(
 
 	stratum[0].gs_shade = compute_vascular_stratum_conductance(
 		command_line[0].verbose_flag,
+		stratum[0].defaults[0][0].epc.psi_curve,
 		stratum[0].defaults[0][0].epc.ppfd_coef,
 		stratum[0].defaults[0][0].epc.gl_c,
 		stratum[0].defaults[0][0].lai_stomatal_fraction,
 		stratum[0].defaults[0][0].epc.psi_open,
 		stratum[0].defaults[0][0].epc.psi_close,
+		stratum[0].defaults[0][0].epc.psi_threshold,
+		stratum[0].defaults[0][0].epc.psi_slp,
+		stratum[0].defaults[0][0].epc.psi_intercpt,
 		stratum[0].defaults[0][0].epc.gl_smax,
 		stratum[0].defaults[0][0].epc.topt,
 		stratum[0].defaults[0][0].epc.tcoef,
@@ -738,11 +759,15 @@ void	canopy_stratum_daily_F(
 
 	stratum[0].potential_gs_shade = compute_vascular_stratum_conductance(
 		command_line[0].verbose_flag,
+		stratum[0].defaults[0][0].epc.psi_curve,
 		stratum[0].defaults[0][0].epc.ppfd_coef,
 		stratum[0].defaults[0][0].epc.gl_c,
 		stratum[0].defaults[0][0].lai_stomatal_fraction,
 		stratum[0].defaults[0][0].epc.psi_open,
 		stratum[0].defaults[0][0].epc.psi_close,
+		stratum[0].defaults[0][0].epc.psi_threshold,
+		stratum[0].defaults[0][0].epc.psi_slp,
+		stratum[0].defaults[0][0].epc.psi_intercpt,
 		stratum[0].defaults[0][0].epc.gl_smax,
 		stratum[0].defaults[0][0].epc.topt,
 		stratum[0].defaults[0][0].epc.tcoef,
@@ -1008,6 +1033,33 @@ void	canopy_stratum_daily_F(
 		command_line[0].verbose_flag,
 		&(rain_throughfall),
 		stratum);
+
+
+	if (stratum[0].rain_stored > 0){
+	    NO3_stored = (stratum[0].rain_stored + stratum[0].snow_stored) 
+	      	/ (stratum[0].rain_stored + stratum[0].snow_stored + rain_throughfall + snow_throughfall) 
+		* (stratum[0].NO3_stored + patch[0].NO3_throughfall);
+	    NO3_throughfall = (rain_throughfall + snow_throughfall)
+		/ (stratum[0].rain_stored + stratum[0].snow_stored + rain_throughfall + snow_throughfall) 
+		* (stratum[0].NO3_stored + patch[0].NO3_throughfall);
+	}
+	else{
+	    if (rain_throughfall > 0){
+		NO3_stored = (stratum[0].rain_stored + stratum[0].snow_stored) 
+	      	/ (stratum[0].rain_stored + stratum[0].snow_stored + rain_throughfall + snow_throughfall) 
+		* (stratum[0].NO3_stored + patch[0].NO3_throughfall);
+
+		NO3_throughfall =  (rain_throughfall + snow_throughfall)
+		/ (stratum[0].rain_stored + stratum[0].snow_stored + rain_throughfall + snow_throughfall) 
+		* (stratum[0].NO3_stored + patch[0].NO3_throughfall); 
+	    }
+	    else{
+                NO3_stored = stratum[0].NO3_stored + patch[0].NO3_throughfall;
+		NO3_throughfall = 0;
+	    }
+	}
+
+	
 
 	if ( command_line[0].verbose_flag > 1 )
 		printf("\n%8d -444.15 ",julday(current_date)-2449000);
@@ -1363,6 +1415,9 @@ void	canopy_stratum_daily_F(
 		* stratum[0].cover_fraction;
 	patch[0].snow_throughfall_final += snow_throughfall
 		* stratum[0].cover_fraction;
+	patch[0].NO3_throughfall_final += NO3_throughfall 
+		* stratum[0].cover_fraction;
+	stratum[0].NO3_stored = NO3_stored;
 	patch[0].ga_final += ga * stratum[0].cover_fraction;
 	patch[0].wind_final += wind * stratum[0].cover_fraction;
 	/*--------------------------------------------------------------*/
@@ -1376,11 +1431,12 @@ void	canopy_stratum_daily_F(
 	if ((command_line[0].output_flags.yearly == 1) && (command_line[0].c != NULL)){
 		stratum[0].acc_year.psn += stratum[0].cdf.psn_to_cpool - stratum[0].cdf.total_mr;
 		stratum[0].acc_year.lwp += stratum[0].epv.psi;
-		if (stratum[0].acc_year.minNSC = -999)
+		if (stratum[0].acc_year.minNSC == -999)
 			stratum[0].acc_year.minNSC = stratum[0].cs.cpool;
 		else
 			stratum[0].acc_year.minNSC = min(stratum[0].cs.cpool, stratum[0].acc_year.minNSC);
 		stratum[0].acc_year.length += 1;
 	}
+
 	return;
 } /*end canopy_stratum_daily_F.c*/

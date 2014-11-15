@@ -2,11 +2,9 @@
 /* 																*/
 /*					add_growth_headers					*/
 /*																*/
-/*	add_growth_headers - 
-/*																*/
+/*	add_growth_headers - 												    	*/
 /*	NAME														*/
-/*	add_growth_headers 
-/*																*/
+/*	add_growth_headers    													*/
 /*	SYNOPSIS													*/
 /*	void add_growth_headers(struct world output_file_object *,				*/
 /*			struct command_line_object *)					*/
@@ -43,11 +41,58 @@ void add_growth_headers(struct world_output_file_object *world_output_files,
 	/*--------------------------------------------------------------*/
 
 	if (command_line[0].b != NULL) {
+
+	/*--------------------------------------------------------------*/
+	/*	Hourly							*/
+	/*--------------------------------------------------------------*/
+	outfile = world_output_files[0].basin[0].hourly;
+	fprintf(outfile,"%s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s\n" ,
+		"hour",
+		"day",
+		"month",
+		"year",
+		"basinID",
+		//"lai",
+		//"gpsn",
+		//"plant_resp",
+		//"soil_resp",
+		//"nitrate",
+		//"sminn",
+		//"surfaceN",
+		//"plantc",
+		//"plantn",
+		//"npool",
+		//"litrc",
+		//"litrn",
+		//"soilc",
+		//"soiln",
+		"gwNO3",
+		"gwNH4",
+		"gwDON",
+		"gwDOC",
+		"streamflow_NO3",
+		"streamflow_NH4",
+		"streamflow_DON",
+		"streamflow_DOC",
+		"gwNO3out",
+		"gwNH4out",
+		"gwDONout",
+		"gwDOCout",
+		//"denitrif",
+		//"nitrif",
+		//"DOC",
+		//"DON",
+		//"root_depth",
+		//"nfix",
+		//"nuptake",
+		//"grazingC",
+		"StreamNO3_from_surface",
+		"StreamNO3_from_sub");	  
 	/*--------------------------------------------------------------*/
 	/*	Daily 							*/
 	/*--------------------------------------------------------------*/
 	outfile = world_output_files[0].basin[0].daily;
-	fprintf(outfile,"%s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s\n" ,
+	fprintf(outfile,"%s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s\n" ,
 		"day",
 		"month",
 		"year",
@@ -81,7 +126,13 @@ void add_growth_headers(struct world_output_file_object *world_output_files,
 		"denitrif",
 		"nitrif",
 		"DOC",
-		"DON","root_depth","nfix","nuptake","grazingC");
+		"DON",
+		"root_depth",
+		"nfix",
+		"nuptake",
+		"grazingC",
+		"StreamNO3_from_surface",
+		"StreamNO3_from_sub");
 	/*--------------------------------------------------------------*/
 	/*	Yearly 							*/
 	/*--------------------------------------------------------------*/

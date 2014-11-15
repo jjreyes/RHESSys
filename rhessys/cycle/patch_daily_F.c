@@ -281,10 +281,12 @@ void		patch_daily_F(
 		struct soil_class,
 		double,
 		double);
+
 	
 	int	resolve_sminn_competition(
 		struct  soil_n_object   *,
 		double, double,
+		double, double, double,
 		struct ndayflux_patch_struct *);
 	
 	void   canopy_stratum_growth(
@@ -364,6 +366,7 @@ void		patch_daily_F(
 	double 	surfaceN_to_soil;
 	double	FERT_TO_SOIL;
 	double	pond_height;
+	double 	rz_drainage,unsat_drainage;
 	struct	canopy_strata_object	*strata;
 	struct	litter_object	*litter;
 	struct  dated_sequence	clim_event;
@@ -411,6 +414,9 @@ void		patch_daily_F(
 	else irrigation = patch[0].landuse_defaults[0][0].irrigation;
 
 	patch[0].rain_throughfall = zone[0].rain + irrigation;
+	/* the N_depo is add in patch_hourly.c in hourly */
+	/* it could be washed away hourly or daily, depending on whether the precipitation data is hourly or daily */
+	patch[0].NO3_throughfall = 0;
 
 
 	if (command_line[0].snow_scale_flag == 1) {
@@ -490,6 +496,7 @@ void		patch_daily_F(
 			patch[0].PAR_diffuse_final = patch[0].layers[layer].null_cover * patch[0].PAR_diffuse;
 			patch[0].rain_throughfall_final = patch[0].layers[layer].null_cover * patch[0].rain_throughfall;
 			patch[0].snow_throughfall_final = patch[0].layers[layer].null_cover * patch[0].snow_throughfall;
+			patch[0].NO3_throughfall_final = patch[0].layers[layer].null_cover * patch[0].NO3_throughfall;
 			patch[0].ga_final = patch[0].layers[layer].null_cover * patch[0].ga;
 			patch[0].wind_final = patch[0].layers[layer].null_cover * patch[0].wind;
 			/*--------------------------------------------------------------*/
@@ -514,6 +521,7 @@ void		patch_daily_F(
 			patch[0].PAR_diffuse = patch[0].PAR_diffuse_final;
 			patch[0].rain_throughfall = patch[0].rain_throughfall_final;
 			patch[0].snow_throughfall = patch[0].snow_throughfall_final;
+			patch[0].NO3_throughfall = patch[0].NO3_throughfall_final;
 			patch[0].ga = patch[0].ga_final;
 			patch[0].wind = patch[0].wind_final;
 		}
@@ -622,6 +630,7 @@ void		patch_daily_F(
 			patch[0].PAR_diffuse_final = patch[0].layers[layer].null_cover * patch[0].PAR_diffuse;
 			patch[0].rain_throughfall_final = patch[0].layers[layer].null_cover * patch[0].rain_throughfall;
 			patch[0].snow_throughfall_final = patch[0].layers[layer].null_cover * patch[0].snow_throughfall;
+			patch[0].NO3_throughfall_final = patch[0].layers[layer].null_cover * patch[0].NO3_throughfall;
 			patch[0].ga_final = patch[0].layers[layer].null_cover * patch[0].ga;
 			patch[0].wind_final = patch[0].layers[layer].null_cover * patch[0].wind;
 			for ( stratum=0 ;stratum<patch[0].layers[layer].count; stratum++ ){
@@ -643,6 +652,7 @@ void		patch_daily_F(
 			patch[0].PAR_diffuse = patch[0].PAR_diffuse_final;
 			patch[0].rain_throughfall = patch[0].rain_throughfall_final;
 			patch[0].snow_throughfall = patch[0].snow_throughfall_final;
+			patch[0].NO3_throughfall = patch[0].NO3_throughfall_final;
 			patch[0].Tday_surface_offset = patch[0].Tday_surface_offset_final;
 			patch[0].ga = patch[0].ga_final;
 			patch[0].wind = patch[0].wind_final;
@@ -661,6 +671,7 @@ void		patch_daily_F(
 			patch[0].PAR_diffuse_final = patch[0].layers[layer].null_cover * patch[0].PAR_diffuse;
 			patch[0].rain_throughfall_final = patch[0].layers[layer].null_cover * patch[0].rain_throughfall;
 			patch[0].snow_throughfall_final = patch[0].layers[layer].null_cover * patch[0].snow_throughfall;
+			patch[0].NO3_throughfall_final = patch[0].layers[layer].null_cover * patch[0].NO3_throughfall;
 			patch[0].ga_final = patch[0].layers[layer].null_cover * patch[0].ga;
 			patch[0].wind_final = patch[0].layers[layer].null_cover * patch[0].wind;
 			for ( stratum=0 ; stratum<patch[0].layers[layer].count; stratum++ ){
@@ -682,6 +693,7 @@ void		patch_daily_F(
 			patch[0].PAR_diffuse = patch[0].PAR_diffuse_final;
 			patch[0].rain_throughfall = patch[0].rain_throughfall_final;
 			patch[0].snow_throughfall = patch[0].snow_throughfall_final;
+			patch[0].NO3_throughfall = patch[0].NO3_throughfall_final;
 			patch[0].Tday_surface_offset = patch[0].Tday_surface_offset_final;
 			patch[0].ga = patch[0].ga_final;
 			patch[0].wind = patch[0].wind_final;
@@ -758,7 +770,8 @@ void		patch_daily_F(
 
 	patch[0].fertilizer_NO3 += fertilizer_NO3;
 	patch[0].fertilizer_NH4 += fertilizer_NH4;
-	patch[0].surface_NO3 += zone[0].ndep_NO3;
+	//patch[0].surface_NO3 += zone[0].ndep_NO3;
+	patch[0].surface_NO3 += patch[0].NO3_throughfall;
 	patch[0].surface_NH4 += zone[0].ndep_NH4;
 
 	/*--------------------------------------------------------------*/
@@ -779,6 +792,7 @@ void		patch_daily_F(
 		patch[0].soil_ns.nitrate += surfaceN_to_soil;
 		}
 
+		
 	/*--------------------------------------------------------------*/
 	/* adjust PH using data patch level inputs			*/
 	/*--------------------------------------------------------------*/
@@ -799,10 +813,9 @@ void		patch_daily_F(
 
 
 	/*	Add rain throughfall to detention store for infiltration	*/
-	/*	and evaporation routines.									*/
-	
+	/*	and evaporation routines.					*/
 	patch[0].detention_store += patch[0].rain_throughfall;
-	
+
 	/* Calculate det store, litter, and bare soil evap first */
 	surface_daily_F(
 					world,
@@ -813,124 +826,116 @@ void		patch_daily_F(
 					command_line,
 					event,
 					current_date );	
-	
+
 	/*--------------------------------------------------------------*/
-	/* 	Above ground Hydrologic Processes			*/
-	/* 	compute infiltration into the soil			*/
-	/*	from snowmelt or rain_throughfall			*/
-	/*	for now assume that all water infilatrates		*/
-	/*	and some may be lost to deeper groundwater		*/
+	/* if there is hourly rain input, don't run the daily infiltration	*/
 	/*--------------------------------------------------------------*/
-	net_inflow = 0.0;
-	duration = 0.0;
-	if (patch[0].detention_store > ZERO) {
-		/*------------------------------------------------------------------------*/
-		/*	drainage to a deeper groundwater store				  */
-		/*	move both nitrogen and water				    	*/
-		/*------------------------------------------------------------------------*/
-		if (command_line[0].gw_flag > 0) {
-		if ( update_gw_drainage(patch,
-			   	hillslope,
-			   	command_line,
-			   	current_date) != 0) {
-				fprintf(stderr,"fATAL ERROR: in update_decomp() ... Exiting\n");
-				exit(EXIT_FAILURE);
-			}
-		}
-		net_inflow = patch[0].detention_store;
+	if (zone[0].hourly_rain_flag!=1) {	
 		/*--------------------------------------------------------------*/
-		/*      - if rain duration is zero, then input is from snow     */
-		/*      melt  assume full daytime duration                      */
+		/* 	Above ground Hydrologic Processes			*/
+		/* 	compute infiltration into the soil			*/
+		/*	from snowmelt or rain_throughfall			*/
+		/*	for now assume that all water infilatrates		*/
+		/*	and some may be lost to deeper groundwater		*/
 		/*--------------------------------------------------------------*/
-		if (zone[0].daytime_rain_duration <= ZERO) {
-			duration = zone[0].metv.dayl/(86400);
+		net_inflow = 0.0;
+		duration = 0.0;
+		if (patch[0].detention_store > ZERO) {
+			/*------------------------------------------------------------------------*/
+			/*	drainage to a deeper groundwater store				  */
+			/*	move both nitrogen and water				    	*/
+			/*------------------------------------------------------------------------*/
+			if (command_line[0].gw_flag > 0) {
+			if ( update_gw_drainage(patch,
+					hillslope,
+					command_line,
+					current_date) != 0) {
+					fprintf(stderr,"fATAL ERROR: in update_decomp() ... Exiting\n");
+					exit(EXIT_FAILURE);
+				}
 			}
-		else duration = zone[0].daytime_rain_duration/(86400);
-	
-		if (patch[0].rootzone.depth > ZERO)	{
-	        	infiltration = compute_infiltration(
-	        		command_line[0].verbose_flag,
-	        		patch[0].sat_deficit_z,
-	        		patch[0].rootzone.S,
-	        		patch[0].Ksat_vertical,
-	        		patch[0].soil_defaults[0][0].Ksat_0_v,
-	        		patch[0].soil_defaults[0][0].mz_v,
-	        		patch[0].soil_defaults[0][0].porosity_0,
-	        		patch[0].soil_defaults[0][0].porosity_decay,
-	        		net_inflow,
-	        		duration,
-	        		patch[0].soil_defaults[0][0].theta_psi_curve);
+			net_inflow = patch[0].detention_store;
+			/*--------------------------------------------------------------*/
+			/*      - if rain duration is zero, then input is from snow     */
+			/*      melt  assume full daytime duration                      */
+			/*--------------------------------------------------------------*/
+			if (zone[0].daytime_rain_duration <= ZERO) {
+				duration = zone[0].metv.dayl/(86400);
+				}
+			else duration = zone[0].daytime_rain_duration/(86400);
+			
+			if (patch[0].rootzone.depth > ZERO)	{
+				infiltration = compute_infiltration(
+					command_line[0].verbose_flag,
+					patch[0].sat_deficit_z,
+					patch[0].rootzone.S,
+					patch[0].Ksat_vertical,
+					patch[0].soil_defaults[0][0].Ksat_0_v,
+					patch[0].soil_defaults[0][0].mz_v,
+					patch[0].soil_defaults[0][0].porosity_0,
+					patch[0].soil_defaults[0][0].porosity_decay,
+					net_inflow,
+					duration,
+					patch[0].soil_defaults[0][0].psi_air_entry);
+				}
+
+			else {
+				infiltration = compute_infiltration(
+					command_line[0].verbose_flag,
+					patch[0].sat_deficit_z,
+					patch[0].S,
+					patch[0].Ksat_vertical,
+					patch[0].soil_defaults[0][0].Ksat_0_v,
+					patch[0].soil_defaults[0][0].mz_v,
+					patch[0].soil_defaults[0][0].porosity_0,
+					patch[0].soil_defaults[0][0].porosity_decay,
+					net_inflow,
+					duration,
+					patch[0].soil_defaults[0][0].psi_air_entry);
 			}
 
-		else {
-	        	infiltration = compute_infiltration(
-	        		command_line[0].verbose_flag,
-	        		patch[0].sat_deficit_z,
-	        		patch[0].S,
-	        		patch[0].Ksat_vertical,
-	        		patch[0].soil_defaults[0][0].Ksat_0_v,
-	        		patch[0].soil_defaults[0][0].mz_v,
-	        		patch[0].soil_defaults[0][0].porosity_0,
-	        		patch[0].soil_defaults[0][0].porosity_decay,
-	        		net_inflow,
-	        		duration,
-	        		patch[0].soil_defaults[0][0].theta_psi_curve);
 		}
+		else infiltration = 0.0;
 
-	}
-	else infiltration = 0.0;
-
-	if (infiltration < 0.0) {
-		printf("\nInfiltration %lf < 0 for %d on %ld",
-			infiltration,
-			patch[0].ID, current_date.day);
-	}
-	/*--------------------------------------------------------------*/
-	/* determine fate of hold infiltration excess in detention store */
-	/* infiltration excess will removed during routing portion	*/
-	/*--------------------------------------------------------------*/
-	
-	infiltration = min(infiltration,patch[0].detention_store);
-	/*--------------------------------------------------------------*/
-	/* added an surface N flux to surface N pool	and		*/
-	/* allow infiltration of surface N				*/
-	/*--------------------------------------------------------------*/
-	if ((command_line[0].grow_flag > 0 ) && (infiltration > ZERO)) {
-		patch[0].soil_ns.DON += ((infiltration / patch[0].detention_store) * patch[0].surface_DON);
-		patch[0].soil_cs.DOC += ((infiltration / patch[0].detention_store) * patch[0].surface_DOC);
-		patch[0].soil_ns.nitrate += ((infiltration / patch[0].detention_store) * patch[0].surface_NO3);
-		patch[0].surface_NO3 -= ((infiltration / patch[0].detention_store) * patch[0].surface_NO3);
-		patch[0].soil_ns.sminn += ((infiltration / patch[0].detention_store) * patch[0].surface_NH4);
-		patch[0].surface_NH4 -= ((infiltration / patch[0].detention_store) * patch[0].surface_NH4);
-		patch[0].surface_DOC -= ((infiltration / patch[0].detention_store) * patch[0].surface_DOC);
-		patch[0].surface_DON -= ((infiltration / patch[0].detention_store) * patch[0].surface_DON);
+		if (infiltration < 0.0) {
+			printf("\nInfiltration %lf < 0 for %d on %ld",
+				infiltration,
+				patch[0].ID, current_date.day);
 		}
-	/*--------------------------------------------------------------*/
-	/* now take infiltration out of detention store 	*/
-	/*--------------------------------------------------------------*/
-	
-	patch[0].detention_store -= infiltration;
 		/*--------------------------------------------------------------*/
-		/*	Determine if the infifltration will fill up the unsat	*/
-		/*	zone or not.						*/
-		/*	We use the strict assumption that sat deficit is the	*/
-		/*	amount of water needed to saturate the soil.		*/
+		/* determine fate of hold infiltration excess in detention store */
+		/* infiltration excess will removed during routing portion	*/
 		/*--------------------------------------------------------------*/
-	
-	if (infiltration > ZERO) {
+		
+		infiltration = min(infiltration,patch[0].detention_store);
+
 		/*--------------------------------------------------------------*/
-		/*	Update patch level soil moisture with final infiltration.	*/
+		/* now take infiltration out of detention store 	*/
 		/*--------------------------------------------------------------*/
-		update_soil_moisture(
-			command_line[0].verbose_flag,
-			infiltration,
-			net_inflow,
-			patch,
-			command_line,
-			current_date );
-	}
-	
-	patch[0].recharge = infiltration;	
+		
+		patch[0].detention_store -= infiltration;
+			/*--------------------------------------------------------------*/
+			/*	Determine if the infifltration will fill up the unsat	*/
+			/*	zone or not.						*/
+			/*	We use the strict assumption that sat deficit is the	*/
+			/*	amount of water needed to saturate the soil.		*/
+			/*--------------------------------------------------------------*/
+		
+		if (infiltration > ZERO) {
+			/*--------------------------------------------------------------*/
+			/*	Update patch level soil moisture with final infiltration.	*/
+			/*--------------------------------------------------------------*/
+			update_soil_moisture(
+				command_line[0].verbose_flag,
+				infiltration,
+				net_inflow,
+				patch,
+				command_line,
+				current_date );
+		}
+		
+		patch[0].recharge = infiltration;
+	} // end if hourly rain flag			
 	/*--------------------------------------------------------------*/
 	/*	Calculate patch level transpiration			*/
 	/*--------------------------------------------------------------*/
@@ -1216,8 +1221,12 @@ void		patch_daily_F(
 	/* 	Resolve plant uptake and soil microbial N demands	*/
 	/*--------------------------------------------------------------*/
 	if (command_line[0].grow_flag > 0)  {
-		resolve_sminn_competition(&(patch[0].soil_ns),patch[0].surface_NO3,
-			patch[0].surface_NH4,&(patch[0].ndf));
+                resolve_sminn_competition(&(patch[0].soil_ns),patch[0].surface_NO3,
+                        patch[0].surface_NH4,
+                        patch[0].rootzone.depth,
+                        patch[0].soil_defaults[0][0].soil_depth,
+                        patch[0].soil_defaults[0][0].N_decay_rate,
+                        &(patch[0].ndf));
 	}
 	/*--------------------------------------------------------------*/
 	/*	Reduce the stratum actual transpiration and compute 	*/
@@ -1335,8 +1344,8 @@ void		patch_daily_F(
 	if (patch[0].sat_deficit < ZERO) {
 		patch[0].S = 1.0;
 		patch[0].rootzone.S = 1.0;
-		patch[0].rz_drainage = 0.0;
-		patch[0].unsat_drainage = 0.0;
+		rz_drainage = 0.0;
+		unsat_drainage = 0.0;
 	}
 	else if (patch[0].sat_deficit_z > patch[0].rootzone.depth)  {		/* Constant vertical profile of soil porosity */
 		/*-------------------------------------------------------*/
@@ -1344,7 +1353,7 @@ void		patch_daily_F(
 		/*-------------------------------------------------------*/
 		
 		patch[0].rootzone.S = min(patch[0].rz_storage / patch[0].rootzone.potential_sat, 1.0);
-		patch[0].rz_drainage = compute_unsat_zone_drainage(
+		rz_drainage = compute_unsat_zone_drainage(
 			command_line[0].verbose_flag,
 			patch[0].soil_defaults[0][0].theta_psi_curve,
 			patch[0].soil_defaults[0][0].pore_size_index,
@@ -1355,12 +1364,12 @@ void		patch_daily_F(
 			patch[0].rz_storage - patch[0].rootzone.field_capacity);
 
 
-		patch[0].rz_storage -=  patch[0].rz_drainage;
-		patch[0].unsat_storage +=  patch[0].rz_drainage;
+		patch[0].rz_storage -=  rz_drainage;
+		patch[0].unsat_storage +=  rz_drainage;
 		
 		patch[0].S = patch[0].unsat_storage / (patch[0].sat_deficit - patch[0].rootzone.potential_sat);	
 		patch[0].rootzone.S = min(patch[0].rz_storage / patch[0].rootzone.potential_sat, 1.0);
-		patch[0].unsat_drainage = compute_unsat_zone_drainage(
+		unsat_drainage = compute_unsat_zone_drainage(
 			command_line[0].verbose_flag,
 			patch[0].soil_defaults[0][0].theta_psi_curve,
 			patch[0].soil_defaults[0][0].pore_size_index,
@@ -1370,15 +1379,15 @@ void		patch_daily_F(
 			patch[0].soil_defaults[0][0].Ksat_0_v / 2,
 			patch[0].unsat_storage - patch[0].field_capacity);
 
-		patch[0].unsat_storage -=  patch[0].unsat_drainage;
-		patch[0].sat_deficit -=  patch[0].unsat_drainage;
+		patch[0].unsat_storage -=  unsat_drainage;
+		patch[0].sat_deficit -=  unsat_drainage;
 	}									
 	else  {
 		patch[0].rz_storage += patch[0].unsat_storage;	/* transfer left water in unsat storage to rootzone layer */
 		patch[0].unsat_storage = 0.0;   
 
 		patch[0].S = min(patch[0].rz_storage / patch[0].sat_deficit, 1.0);
-		patch[0].rz_drainage = compute_unsat_zone_drainage(
+		rz_drainage = compute_unsat_zone_drainage(
 			command_line[0].verbose_flag,
 			patch[0].soil_defaults[0][0].theta_psi_curve,
 			patch[0].soil_defaults[0][0].pore_size_index,
@@ -1388,13 +1397,15 @@ void		patch_daily_F(
 			patch[0].soil_defaults[0][0].Ksat_0 / 2,
 			patch[0].rz_storage - patch[0].rootzone.field_capacity);		
 
-		patch[0].unsat_drainage = 0.0;
+		unsat_drainage = 0.0;
 
-		patch[0].rz_storage -=  patch[0].rz_drainage;
-		patch[0].sat_deficit -=  patch[0].rz_drainage;
+		patch[0].rz_storage -=  rz_drainage;
+		patch[0].sat_deficit -=  rz_drainage;
 	}	
-	
-
+	patch[0].unsat_drainage += unsat_drainage;
+	patch[0].rz_drainage += rz_drainage;
+	patch[0].hourly_unsat_drainage += unsat_drainage;
+	patch[0].hourly_rz_drainage += rz_drainage;
 	/* ---------------------------------------------- */
 	/*     Final rootzone saturation calculation      */
 	/* ---------------------------------------------- */
@@ -1433,9 +1444,10 @@ void		patch_daily_F(
 		-1.0 * patch[0].sat_deficit);
 
 
+	theta = patch[0].rootzone.S;
+
 	patch[0].theta_std = (patch[0].soil_defaults[0][0].theta_mean_std_p2*theta*theta + 
 				patch[0].soil_defaults[0][0].theta_mean_std_p1*theta);
-
 	/*-------------------------------------------------------------------------*/
 	/*	finalized soil and litter decomposition					*/
 	/* 	and any septic losses							*/
@@ -1502,6 +1514,22 @@ void		patch_daily_F(
 		}
 
 	}
+
+
+	/* track variables for fire spread */
+	if (command_line[0].firespread_flag == 1) {
+		patch[0].fire.et = (patch[0].fire_defaults[0][0].ndays_average*patch[0].fire.et  +  
+		(patch[0].transpiration_sat_zone + patch[0].transpiration_unsat_zone
+		+ patch[0].evaporation + patch[0].evaporation_surf 
+		+ patch[0].exfiltration_unsat_zone + patch[0].exfiltration_sat_zone))/
+		(patch[0].fire_defaults[0][0].ndays_average + 1);
+
+		patch[0].fire.pet = (patch[0].fire_defaults[0][0].ndays_average*patch[0].fire.pet    
+				+ patch[0].PET) / 
+		(patch[0].fire_defaults[0][0].ndays_average + 1);
+		}
+	
+
 
 	patch[0].soil_cs.totalc = ((patch[0].soil_cs.soil1c)
 		+ (patch[0].soil_cs.soil2c) +	(patch[0].soil_cs.soil3c)

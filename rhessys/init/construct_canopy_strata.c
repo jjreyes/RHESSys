@@ -304,6 +304,7 @@ struct canopy_strata_object *construct_canopy_strata(
 	canopy_strata[0].cs.deadcroot_gr_snk = 0.0;
 	canopy_strata[0].cs.froot_mr_snk = 0.0;
 	canopy_strata[0].cs.froot_gr_snk = 0.0;
+	canopy_strata[0].NO3_stored = 0.0; // this is for the NO3 deposition on leaves
 	
 	/*--------------------------------------------------------------*/
 	/*      initialize accumulator variables                        */
@@ -431,7 +432,7 @@ struct canopy_strata_object *construct_canopy_strata(
 	/*	set phenology timing if static allocation		*/
 	/*  and initialize for dynamic runs				*/
 	/*--------------------------------------------------------------*/
-			canopy_strata[0].phen.expand_startday =
+		canopy_strata[0].phen.expand_startday =
 			canopy_strata[0].defaults[0][0].epc.day_leafon;
 		canopy_strata[0].phen.expand_stopday =
 			canopy_strata[0].phen.expand_startday

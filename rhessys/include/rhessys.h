@@ -303,7 +303,7 @@ struct	world_hourly_object
 /*----------------------------------------------------------*/
 struct	world_output_file_object
 	{
-	struct	output_files_object 	*basin;
+	struct	output_files_object		*basin;
 	struct	output_files_object		*hillslope;
 	struct	output_files_object		*zone;
 	struct	output_files_object		*patch;
@@ -468,6 +468,23 @@ struct basin_object
 	double	theta_noon;		/* 	rads	*/
 	double	sin_latitude;		/* 	DIM	*/
 	double	max_slope;		/* 	degrees	*/
+	
+	/*	used in subsurface computation		*/
+	double basin_outflow;
+	double basin_rz_storage;
+	double basin_unsat_storage;
+	double basin_sat_deficit;
+	double basin_return_flow;
+	double basin_detention_store;
+	double basin_area;
+	double preday_basin_unsat_storage;
+	double preday_basin_rz_storage;
+	double preday_basin_sat_deficit;
+	double preday_sat_deficit;
+	double preday_basin_return_flow;
+	double preday_basin_detention_store;
+	/*						*/
+	
 	struct	base_station_object	**base_stations;
 	struct	basin_default		**defaults;
 	struct	basin_hourly_object	*hourly;
@@ -642,6 +659,8 @@ struct hillslope_default
 	int			ID;
 	int	n_routing_timesteps; 		/*  number per day */
 	double	gw_loss_coeff;					/* percent/day */
+	double	gw_loss_fast_coeff;					/* percent/day */
+	double	gw_loss_fast_threshold;					/* m */
 	};
 
 /*----------------------------------------------------------*/
@@ -681,6 +700,12 @@ struct 	gw_object
 	double	NH4out;			/* kgN/m2/day	*/
 	double	DONout;			/* kgN/m2/day	*/
 	double	DOCout;			/* kgC/m2/day	*/
+	double	hourly_Qout;		/* m/m2/day	*/
+	double	hourly_NO3out;		/* kgN/m2/day	*/
+	double	hourly_NH4out;		/* kgN/m2/day	*/
+	double	hourly_DONout;		/* kgN/m2/day	*/
+	double	hourly_DOCout;		/* kgC/m2/day	*/
+
 	};
 /*----------------------------------------------------------*/
 /*	Define a hillslope object.								*/	
@@ -695,12 +720,18 @@ struct hillslope_object
 	double	y;			/*	meters	*/
 	double	z;			/* meters	*/
 	double	area;			/* sq meters */
+	double	riparian_area;		/* sq meters */
 	double	slope;			/* degrees */
 	double	base_flow;		/* meters		*/
+	double	hourly_base_flow;	/* meters   */
 	double	streamflow_NO3;		/* kgN/m2/day		*/
 	double	streamflow_NH4;		/* kgN/m2/day		*/
 	double	streamflow_DON;		/* kgN/m2/day		*/
 	double	streamflow_DOC;		/* kgC/m2/day		*/
+	double  hourly_streamflow_NO3;	/* kgN/m2/day		*/
+	double	hourly_streamflow_NH4;	/* kgN/m2/day		*/
+	double	hourly_streamflow_DON;	/* kgN/m2/day		*/
+	double	hourly_streamflow_DOC;	/* kgN/m2/day		*/
 	struct	gw_object		gw;
 	struct	aggdefs_object		aggdefs;
 	struct	base_station_object	**base_stations;
@@ -855,6 +886,7 @@ struct zone_object
 	double	sin_slope;				/*	DIM	*/
 	double	slope;					/* degrees 	*/
 	double	snow;				     	/* m water	*/
+	double	snow_hourly_total;
 	double	surface_Tday;				/*	deg C	*/
 	double	surface_Tnight;				/*	deg C	*/
 	double	tdewpoint;				/* degrees C	*/
@@ -890,6 +922,7 @@ struct	zone_hourly_object
 	double	Kdown_diffuse_flat;			/*	W/m^2	*/
 	double	sin_aspect;				/*	DIM	*/
 	double	sin_slope;				/*	DIM	*/
+	double	snow;					/*	m	*/
 	};
 
 
@@ -972,6 +1005,7 @@ struct	soil_default
 	double  gsurf_intercept;				/* m/s */
 	double  theta_mean_std_p1;				/* DIM */
 	double  theta_mean_std_p2;				/* DIM */
+	double	sat_store;					/* percent of max sat_deficit, for fill and spill  */
 	struct soil_class	soil_type;
 	};
 
@@ -1295,6 +1329,45 @@ struct	soil_n_object
     double nleached_snk;    /* (kgN/m2) SUM of N leached */
     double nvolatilized_snk; /* (kgN/m2) SUM of N lost to volatilization */
 	};
+
+
+/*----------------------------------------------------------*/
+/*	Define the fire structure.	*/
+/*----------------------------------------------------------*/
+
+struct fire_default {
+	int ID;
+	double veg_fuel_weighting ;	
+	double ndays_average;	/* days */
+	};
+
+struct fire_object 
+{
+	int num_patches;
+	int burn;			/* 0-1 */
+	struct patch_object **patches;
+	double *prop_patch_in_grid;
+	double *prop_grid_in_patch; 	/* 0-1 */
+	double fuel_veg;  		/* kgC/m2 */
+	double fuel_litter; 		/* kgC/m2 */
+	double fuel_moist; 		/* 0-1 */
+	double soil_moist; 		/* 0-1 */
+	double z; 			/* m */
+	double wind; 			/* m/s */
+	double wind_direction; 		/*degrees */
+	double relative_humidity;	/* 0-1 */
+	double pet;			/* mm */
+	double et;			/* mm */
+	struct fire_default_object *defaults;
+};	
+
+struct patch_fire_object
+{
+	double pet;			/* mm */
+	double et;			/* mm */
+
+};
+
 /*----------------------------------------------------------*/
 /*	Define a snowpack object.								*/
 /*----------------------------------------------------------*/
@@ -1355,6 +1428,11 @@ struct patch_object
 	double  ga;			/* m/s */         
 	double  ga_final;		/* m/s */         
 	double  gw_drainage; 		/* m/day */
+	double	hourly_rz_drainage;	/* m water by Xiaoli */
+	double	hourly_unsat_drainage;	/* m water by Xiaoli */
+	double	hourly_subsur2stream_flow;	/* m water by Xiaoli */
+	double	hourly_sur2stream_flow;  /* m water by Xiaoli */
+	double	hourly_stream_flow;	/* m water by Xiaoli */
 	double  interim_sat;		/* m */
 	double  stream_gamma;		/* meters**2/day	*/
  	double	Kdown_direct;		/* Kj/(m^2*day)	*/
@@ -1412,8 +1490,11 @@ struct patch_object
 	double	rain_throughfall;	/* m water	*/	
 	double	recharge;	/* m water	*/	
 	double	return_flow;		/* m water	*/
-	double	snow_throughfall;	/* m water	*/	
+	double	snow_throughfall;	/* m water	*/
+	double	rain_throughfall_24hours;	/* m water,used for 24 hours accumulated throughfall	*/	
 	double	rain_throughfall_final;	/* m water	*/	
+	double	NO3_throughfall;	/* kg/m2 day  */
+	double	NO3_throughfall_final;	/* kg/m2 day */
 	double	rain_stored;		/* m water	*/
 	double	slope;			/* degrees		*/
 	double	S;			/* m/m		*/
@@ -1422,6 +1503,8 @@ struct patch_object
 	double	std;			/* m water	*/
 	double	theta_std;			/* m water	*/
 	double  surface_NO3;		/* kg/m2	*/
+	double	streamNO3_from_surface;	/* kg/m2	*/
+	double	streamNO3_from_sub;	/* kg/m2	*/
 	double  surface_NH4;		/* kg/m2	*/
 	double  grazing_Closs;		/* kgC/m2	*/
 	double  grazing_mean_nc;	/* ratio N:Co	*/
@@ -1475,6 +1558,7 @@ struct patch_object
 	struct	neighbour_object 	*neighbours;
 	struct	patch_object		*next_stream;
 	struct	surface_energy_object   *surface_energy_profile;
+	struct	patch_fire_object	fire;
 	struct  accumulate_patch_object acc_month;
 	struct  accumulate_patch_object acc_year;
 	struct  rooting_zone_object	rootzone;
@@ -1563,7 +1647,12 @@ struct	patch_hourly_object
 	{
 	int	i;
 	double	rain_throughfall;
+	double	NO3_throughfall;
+	double	NO3_throughfall_final;
 	double	infiltration;
+	double	streamflow_NO3_from_surface;
+	double	streamflow_NO3_from_sub;
+	double	streamflow_NO3;
 	};
 
 /*----------------------------------------------------------*/
@@ -1696,6 +1785,7 @@ struct	output_flag
 	int		daily;
 	int		daily_growth;
 	int		hourly;
+	int		hourly_growth;
 	};
 
 /*----------------------------------------------------------*/
@@ -1709,7 +1799,8 @@ struct	command_line_object
 	int		routing_flag;
 	int		surface_routing_flag;
 	int		stream_routing_flag;
-	int     reservoir_operation_flag;
+	int		gwtoriparian_flag;
+	int     	reservoir_operation_flag;
 	int		ddn_routing_flag;
 	int		dclim_flag;
 	int		road_flag;
@@ -2242,6 +2333,9 @@ struct epconst_struct
 	double tcoef;          /* (NONE) coefficient for tempcurve function */
 	double psi_open;       /* (MPa) psi at start of conductance reduction */
 	double psi_close;      /* (MPa) psi at complete conductance reduction */
+	double psi_threshold;      /* (MPa) psi at complete conductance reduction begins */
+	double psi_slp;      /* (/MPa) slope of conductance reduction curve */
+	double psi_intercpt;      /* (0-1) intercept of conductance reduction curve */
 	double vpd_open;       /* (Pa) vpd at start of conductance reduction */
 	double vpd_close;      /* (Pa) vpd at complete conductance reduction */
 	double gl_smax;        /* (m/s) maximum leaf-scale stomatal conductance */
@@ -2256,6 +2350,9 @@ struct epconst_struct
 	double gs_dayl_min;	   /* (s) lower day length threshold for leaf onset */
 	double gs_dayl_max;	   /* (s) upper day length threshold for leaf onset */
 	double gs_dayl_range;	   /* (s)  day length range for leaf onset */
+	double gs_psi_min;	   /* (mPa) lower soil moisture psi threshold for leaf onset mPa */
+	double gs_psi_max;	   /* (mPa) upper soil moisture psi  threshold for leaf onset mPa */
+	double gs_psi_range;	   /* (mPa)  psi range for leaf onset */
 	double coef_CO2;	/* DIM 0-1  conductance sensitivity to CO2 */ 
 	int day_leafon;        /* (DIM) yearday leaves on */
 	int day_leafoff;       /* (DIM) yearday leaves off - set to 0 for no leaf drop cond.  */
@@ -2266,6 +2363,7 @@ struct epconst_struct
 	int veg_type;		/* (DIM) set as 1 for tree; 0 for grass	*/
 	int phenology_type;	/* (DIM) set as 1 for decid; 0 for evergreen	*/
 	int nfix;		/* (DIM) set a 1 for n-fixers; 0 for not nfixers */
+	int psi_curve;		/* (DIM) set to 0 for biome-bgc psi-conductance curve, other values give type of model 1=linear, 2=squared etc */
 	int edible;		/* (DIM) set to 1 for edible plants */
     	int  Tacclim;  		/* (DIM) set to 1  for temperature acclimation of respiration Q10  */
     double gr_perc;	   /* (DIM 0-1) percent of growth allocated to respiration */
@@ -2404,6 +2502,7 @@ struct	canopy_strata_object
 	double	Kup_direct;					/* Kj/(m2*day)	*/
 	double	Kup_diffuse;					/* Kj/(m2*day)	*/
 	double	Lstar;						/* Kj/(m2*day)	*/	
+	double	NO3_stored;					/* kg/m2	*/
 	double	PAR_after_reflection;				/* (umol photon/m2*day) */
 	double  ppfd_sunlit;			/*  (umol/m2/s) PAR photon flux density */
 	double  ppfd_shade;			/*  (umol/m2/s) PAR photon flux density */
@@ -2456,33 +2555,6 @@ struct mortality_struct
 	double mort_deadcrootc;
 	double mort_frootc;
 };
-
-/*----------------------------------------------------------*/
-/*	Define the fire structure.	*/
-/*----------------------------------------------------------*/
-
-struct fire_default {
-	int ID;
-	double veg_fuel_weighting ;	
-	};
-
-struct fire_object 
-{
-	int num_patches;
-	int burn;			/* 0-1 */
-	struct patch_object **patches;
-	double *prop_patch_in_grid;
-	double *prop_grid_in_patch; 	/* 0-1 */
-	double fuel_veg;  		/* kgC/m2 */
-	double fuel_litter; 		/* kgC/m2 */
-	double fuel_moist; 		/* 0-1 */
-	double soil_moist; 		/* 0-1 */
-	double z; 			/* m */
-	double wind; 			/* m/s */
-	double wind_direction; 		/*degrees */
-	double relative_humidity;	/* 0-1 */
-	struct fire_default_object *defaults;
-};	
 
 
 /*----------------------------------------------------------*/
